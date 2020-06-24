@@ -1,10 +1,23 @@
 import discord
 import random
+from random import randrange
 import time
 import asyncio
 from discord.ext import commands
 from Bobo import BoethiusToken
+from Bobo import BotServer
 from Bobo import quotes
+import pandas as pd
+import sqlalchemy
+from sqlalchemy.orm import class_mapper
+from sqlalchemy.ext.automap import automap_base
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, inspect, func
+
+engine = create_engine(f'postgresql://postgres:{BotServer}@localhost:5432/BotServer')
+connection = engine.connect()
+inspector = inspect(engine)
+print(inspector.get_table_names())
 
 client = discord.Client()
 
@@ -29,8 +42,6 @@ async def on_message(message):
     if message.content.lower().startswith('&shush'):
         await message.channel.send("<a:okbottom:683091370327670813>")
         
-    # if message.content.startswith('&shush') or message.content.startswith('&Shush'):
-    #     await message.channel.send("<a:okbottom:683091370327670813>")
         
     if "minecraft" in message.content.lower():
         await message.add_reaction("<a:pikaMine:653443963608629249>")
@@ -89,10 +100,46 @@ async def on_message(message):
             await message.channel.send("smh my head")
 
     if message.content.lower().startswith('&quote'):
-        inspiration = random.choice(quotes)
-        print(inspiration)
-        await message.channel.send(inspiration +"\n"  "-Me")
+        quotes = pd.read_sql('SELECT * FROM "quotes"', connection)
+        quoteNum = randrange(len(quotes))
+        Qname = quotes.iloc[quoteNum, 0]
+        Qquote = quotes.iloc[quoteNum, 1]
+        print(Qname)
+        print(Qquote)
+        
+        await message.channel.send(Qquote +"\n"  "-"+Qname)
     
+    if message.content.lower().startswith('&addquote'):
+        await message.channel.send("Who is the author? If unknown put 'Anonymous'")
+
+        def add_quote_request1(m):
+            return m.author == message.author
+        
+        try:
+            authorResponse = await client.wait_for('message', check=add_quote_request1, timeout = 30.0)
+        
+        except asyncio.TimeoutError:
+            await message.channel.send('Request timed out')
+        
+        authorResponse = str(authorResponse.content)
+
+        await message.channel.send("What is the quote?")
+
+        def add_quote_request2(m):
+            return m.author == message.author
+        
+        try:
+            quoteResponse = await client.wait_for('message', check=add_quote_request2, timeout = 30.0)
+        
+        except asyncio.TimeoutError:
+            await message.channel.send('Request timed out')
+
+        quoteResponse = str(quoteResponse.content)
+
+        engine.execute(f"INSERT INTO quotes (name, quote) VALUES ('{authorResponse}', '{quoteResponse}')")
+
+        await message.channel.send("Quote added successfully... maybe")
+
     if message.content.lower().startswith('&dice'):
         await message.channel.send("How many dice? (max: 15)")
 
@@ -116,6 +163,7 @@ async def on_message(message):
 
         except asyncio.TimeoutError:
             await message.channel.send('shame')
+
         response2 = int(response2.content)
 
         if response2 > 0 and 0 < response1 <= 15:
@@ -139,6 +187,8 @@ async def on_message(message):
                                   +"&coin : flips a coin\n"
                                   +"&dice : rolls chosen number of dice with chosen number of sides\n"
                                   +"&hewwo : does something stupid\n"
-                                  +"&shush : does something else stupid\n")
+                                  +"&shush : does something else stupid\n"
+                                  +"&quote : returns a quote submitted either by myself or another user.\n Note: Quotes from other users are not garunteed to be appropriate. If you see a quote that you think should be removed, please contact Phosphophyllite.\n"
+                                  +"&addquote : add your own quote to the bot's database. Updates in real time\n")
             
 client.run(BoethiusToken)
