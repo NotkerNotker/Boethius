@@ -33,9 +33,6 @@ async def on_message(message):
     if message.content.lower().startswith('&hello'):
         await message.channel.send('Hello!')
     
-    if message.content.lower().startswith('&joke'):
-        await message.channel.send("Sorry I'm not very funny at the moment if I'm being honest. Open to requests though")
-    
     if message.content.lower().startswith('&hewwo'):
         await message.channel.send('OwO')
         
@@ -136,9 +133,46 @@ async def on_message(message):
 
         quoteResponse = str(quoteResponse.content)
 
-        engine.execute(f"INSERT INTO quotes (name, quote) VALUES ('{authorResponse}', '{quoteResponse}')")
+        data = {'name': [authorResponse], 'quote':[quoteResponse]}
+        additionDF = pd.DataFrame(data=data)
+        additionDF.to_sql('quotes', con=engine, index=False, if_exists='append')
+
+        print(authorResponse)
+        print(quoteResponse)
+        # engine.execute(f"INSERT INTO quotes (name, quote) VALUES ('{authorResponse}', '{quoteResponse}')")
 
         await message.channel.send("Quote added successfully... maybe")
+
+    if message.content.lower().startswith('&joke'):
+        jokes = pd.read_sql('SELECT * FROM "jokes"', connection)
+        jokeNum = randrange(len(jokes))
+        JJoke = jokes.iloc[jokeNum, 0]
+        print(JJoke)
+        
+        await message.channel.send(JJoke)
+    
+    if message.content.lower().startswith('&addjoke'):
+        await message.channel.send("Tell your joke for all to see")
+
+        def add_joke_request1(m):
+            return m.author == message.author
+        
+        try:
+            jokeResponse = await client.wait_for('message', check=add_joke_request1, timeout = 30.0)
+        
+        except asyncio.TimeoutError:
+            await message.channel.send('Request timed out')
+        
+        jokeResponse = str(jokeResponse.content)
+        joke_source = str(message.author)
+        print(joke_source)
+        print(jokeResponse)
+
+        data = {'joke': [jokeResponse], 'profile_name':[joke_source]}
+        additionDF = pd.DataFrame(data=data)
+        additionDF.to_sql('jokes', con=engine, index=False, if_exists='append')
+
+        await message.channel.send("Joke added successfully... maybe")
 
     if message.content.lower().startswith('&dice'):
         await message.channel.send("How many dice? (max: 15)")
@@ -189,6 +223,8 @@ async def on_message(message):
                                   +"&hewwo : does something stupid\n"
                                   +"&shush : does something else stupid\n"
                                   +"&quote : returns a quote submitted either by myself or another user.\n Note: Quotes from other users are not garunteed to be appropriate. If you see a quote that you think should be removed, please contact Phosphophyllite.\n"
-                                  +"&addquote : add your own quote to the bot's database. Updates in real time\n")
+                                  +"&addquote : add your own quote to the bot's database. Updates in real time\n"
+                                  +"&joke : returns a joke submitted by either myself or another user. Same disclaimer applies as with the Quotes function.\n"
+                                  +"&addjoke : add your own joke to be stored in the bot's database.\n")
             
 client.run(BoethiusToken)
